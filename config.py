@@ -29,6 +29,7 @@ class Config:
     # ── training ────────────────────────────────────────────────────
     total_episodes: int = 5000
     log_interval: int = 100      # print stats every N episodes
+    render_interval: int = 50    # show game window every N episodes
     save_interval: int = 500     # save model every N episodes
     model_dir: str = "models"
 
