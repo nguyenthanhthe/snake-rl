@@ -1,8 +1,7 @@
 """
 Rollout buffer for PPO with parallel environments.
 
-Pre-allocated flat arrays.  Stores `n_steps` steps from `n_envs` envs,
-then computes GAE and yields mini‑batches for the PPO update.
+Supports both 1‑D features and multi‑channel grid observations.
 """
 import torch
 import numpy as np
@@ -11,13 +10,15 @@ import numpy as np
 class RolloutBuffer:
     """Fixed‑size step‑based buffer for vectorized PPO."""
 
-    def __init__(self, n_envs: int, n_steps: int, obs_dim: int,
+    def __init__(self, n_envs: int, n_steps: int, obs_shape,
                  device: torch.device):
         self.n_envs = n_envs
         self.n_steps = n_steps
         self.device = device
+        self.obs_shape = (n_steps, n_envs, *obs_shape) if isinstance(obs_shape, tuple) \
+                         else (n_steps, n_envs, obs_shape)
 
-        self.states  = torch.zeros(n_steps, n_envs, obs_dim, dtype=torch.float32, device=device)
+        self.states  = torch.zeros(*self.obs_shape, dtype=torch.float32, device=device)
         self.actions = torch.zeros(n_steps, n_envs, dtype=torch.long, device=device)
         self.rewards = torch.zeros(n_steps, n_envs, dtype=torch.float32, device=device)
         self.dones   = torch.zeros(n_steps, n_envs, dtype=torch.float32, device=device)
@@ -38,10 +39,7 @@ class RolloutBuffer:
 
     def compute_gae(self, last_values: torch.Tensor,
                     gamma: float, gae_lambda: float):
-        """
-        Compute GAE advantages and returns in‑place.
-        last_values: (n_envs,) — value of the final observation.
-        """
+        """Compute GAE advantages and returns.  Returns flat tensors."""
         n = self.n_steps
         advantages = torch.zeros(n, self.n_envs, device=self.device)
         gae = 0.0
@@ -54,13 +52,13 @@ class RolloutBuffer:
         returns = advantages + self.values
 
         # Flatten for mini‑batch training
-        flat_states  = self.states.reshape(-1, self.states.shape[-1])
+        flat_states  = self.states.reshape(n * self.n_envs, *self.obs_shape[2:])
         flat_actions = self.actions.flatten()
         flat_log     = self.log_probs.flatten()
         flat_adv     = advantages.flatten()
         flat_ret     = returns.flatten()
 
-        # Normalise advantages (stable training)
+        # Normalise advantages
         if len(flat_adv) > 1:
             flat_adv = (flat_adv - flat_adv.mean()) / (flat_adv.std() + 1e-8)
 

@@ -31,6 +31,7 @@ class SnakeGame:
         self.grid_size = grid_size
         self.cell_size = cell_size
         self.win_size = grid_size * cell_size
+        self.max_food_dist = None  # None = any position; int = max Manhattan dist
 
         # PyGame init (lazy — only when render is called)
         self._screen = None
@@ -150,6 +151,22 @@ class SnakeGame:
         return dir_idx  # STRAIGHT
 
     def _place_food(self):
+        if self.max_food_dist is not None:
+            # Curriculum: food within max_food_dist Manhattan from head
+            head = self.snake[-1]
+            candidates = []
+            gs = self.grid_size
+            for x in range(max(0, head[0] - self.max_food_dist),
+                           min(gs, head[0] + self.max_food_dist + 1)):
+                for y in range(max(0, head[1] - self.max_food_dist),
+                               min(gs, head[1] + self.max_food_dist + 1)):
+                    d = abs(x - head[0]) + abs(y - head[1])
+                    if 0 < d <= self.max_food_dist and (x, y) not in self.snake:
+                        candidates.append((x, y))
+            if candidates:
+                self.food = candidates[np.random.randint(len(candidates))]
+                return
+        # Fallback / no curriculum
         while True:
             pos = (np.random.randint(0, self.grid_size),
                    np.random.randint(0, self.grid_size))

@@ -1,55 +1,77 @@
 """
 Vectorized environment — runs N SnakeGame instances in lockstep.
 
-Provides batched step/reset so PPO can collect diverse trajectories
-in parallel for stable, efficient training.
+Supports two observation modes:
+  - "features" (default) — 11‑dim vector
+  - "grid" — (4, H, W) grid observation for CNN
 """
 import numpy as np
 from snake_game.env import SnakeEnv
+from snake_game.grid_obs import make_grid_obs
 
 
 class VecEnv:
     """N environments running synchronously."""
 
     def __init__(self, n_envs: int, grid_size: int = 10,
-                 cell_size: int = 40, max_steps: int = 200):
+                 cell_size: int = 40, max_steps: int = 200,
+                 obs_mode: str = "features"):
         self.n_envs = n_envs
+        self.grid_size = grid_size
+        self.obs_mode = obs_mode
         self.envs = [SnakeEnv(grid_size, cell_size, max_steps)
                      for _ in range(n_envs)]
-        self.obs_dim = 11
+
+    @property
+    def obs_dim(self):
+        return 11 if self.obs_mode == "features" else (4, self.grid_size, self.grid_size)
+
+    @property
+    def obs_shape(self):
+        return self.obs_dim  # alias
+
+    # ── helpers ──────────────────────────────────────────────────────
+
+    def _obs(self, env: SnakeEnv):
+        """Return observation for a single env in the current mode."""
+        if self.obs_mode == "features":
+            return env.game._get_state()
+        g = env.game
+        return make_grid_obs(g.snake[-1], g.snake, g.food, self.grid_size)
+
+    # ── API ──────────────────────────────────────────────────────────
 
     def reset(self):
-        """Reset all envs.  Returns (n_envs, obs_dim) float32 array."""
-        return np.array([e.reset() for e in self.envs], dtype=np.float32)
+        """Reset all envs.  Returns (n_envs, *obs_shape) float32 array."""
+        return np.array([self._obs(e) for e in self.envs], dtype=np.float32)
 
     def step(self, actions: np.ndarray):
         """
-        Step all envs with the given actions (shape: (n_envs,)).
-
-        Returns (states, rewards, dones, infos).
-        Done envs are automatically reset — their terminal state is
-        still returned so the PPO update sees the transition.
+        Step all envs.  Returns (states, rewards, dones, infos).
+        Done envs are auto‑reset (terminal transition still returned).
         """
         states, rewards, dones, infos = [], [], [], []
         for i, env in enumerate(self.envs):
             s, r, d, info = env.step(int(actions[i]))
-            states.append(s)
             rewards.append(r)
             dones.append(d)
             infos.append(info)
             if d:
-                env.reset()  # reset silently so next step starts fresh
+                states.append(self._obs(env))  # obs of terminal state
+                env.reset()
+                # After reset, the next step will see the fresh state
+            else:
+                states.append(self._obs(env))
+        dtype = np.float32 if self.obs_mode == "features" else np.float32
         return (np.array(states, dtype=np.float32),
                 np.array(rewards, dtype=np.float32),
                 np.array(dones, dtype=np.float32),
                 infos)
 
     def render_one(self, idx: int = 0):
-        """Render one specific environment (for the visualizer)."""
         self.envs[idx].render()
 
     def get_scores(self):
-        """Current score of each env (useful for logging)."""
         return [e.score for e in self.envs]
 
     def close(self):
