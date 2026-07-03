@@ -52,8 +52,9 @@ def train(cfg: Config):
     # ── stats ──────────────────────────────────────────────────────────
     total_episodes = 0
     best_score = -1
-    episode_returns = []   # episodic return per finished episode
+    episode_returns = []   # total return per finished episode (for the chart)
     episode_scores = []    # score at episode end
+    ep_return_buf = np.zeros(cfg.n_envs, dtype=np.float32)  # per‑env cumulative return
     start_time = time.time()
     timesteps = 0
 
@@ -74,14 +75,15 @@ def train(cfg: Config):
                 buffer.store(states, actions, rewards, dones, log_probs, values)
                 states = next_states
                 timesteps += cfg.n_envs
+                ep_return_buf += rewards
 
                 # Track finished episodes
                 for i in range(cfg.n_envs):
                     if dones[i]:
                         total_episodes += 1
-                        episode_returns.append(buffer.rewards[step, i].item()
-                                                if step > 0 else 0.0)
+                        episode_returns.append(ep_return_buf[i])
                         episode_scores.append(vec_env.get_scores()[i])
+                        ep_return_buf[i] = 0.0  # reset
 
             # ── PPO update ────────────────────────────────────────────
             last_s = torch.as_tensor(states, dtype=torch.float32, device=device)
@@ -99,13 +101,14 @@ def train(cfg: Config):
 
             # ── chart ────────────────────────────────────────────────
             if episode_returns:
-                avg_ret = np.mean(episode_returns[-cfg.n_envs:])
-                viz.update(update_idx, avg_ret, best_score)
+                recent = episode_returns[-min(len(episode_returns), cfg.n_envs):]
+                viz.update(update_idx, float(np.mean(recent)), best_score)
 
             # ── console log ──────────────────────────────────────────
             if update_idx % cfg.log_interval == 0:
-                avg_ret = np.mean(episode_returns[-cfg.n_envs * 2:]) if episode_returns else 0.0
-                eps_per_sec = total_episodes / (time.time() - start_time) if time.time() > start_time else 0
+                n = min(len(episode_returns), cfg.n_envs * 2) if episode_returns else 1
+                avg_ret = float(np.mean(episode_returns[-n:])) if episode_returns else 0.0
+                eps_per_sec = total_episodes / (time.time() - start_time)
                 print(f"Upd {update_idx:4d} | ep {total_episodes:5d}/{cfg.total_episodes} | "
                       f"avg_ret {avg_ret:+7.2f} | best {best_score:2d} | "
                       f"{eps_per_sec:.1f} ep/s | {timesteps} steps")

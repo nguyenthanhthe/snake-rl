@@ -54,8 +54,8 @@ class LiveVisualizer:
         sma = np.mean(dq)
 
         self.line_ret.set_data(self.updates, self.avg_rets)
-        self.line_sma.set_data(self.updates,
-                               [sma] * len(self.updates[:len(self.avg_rets])])
+        self.line_sma.set_data(self.updates[:len(self.avg_rets)],
+                               [sma] * len(self.updates[:len(self.avg_rets)]))
         self.line_score.set_data(self.updates, self.max_scores)
 
         for ax in (self.ax1, self.ax2):
