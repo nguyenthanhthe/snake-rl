@@ -12,6 +12,16 @@ import torch
 import numpy as np
 from collections import deque
 
+# Windows taskbar icon fix: Set current process AppUserModelID
+# before initializing pygame, so Windows groups this python instance separately
+# and displays the custom Pygame window icon on the taskbar instead of the default python logo.
+if sys.platform == 'win32':
+    import ctypes
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("mycompany.snakerl.visualizer.1.0")
+    except Exception as e:
+        print(f"Failed to set AppUserModelID: {e}")
+
 from snake_game.game import SnakeGame
 from agent.model import ActorCritic
 
@@ -20,7 +30,7 @@ BLACK = (10, 10, 12)
 CARD_BG = (18, 18, 24)
 GRID_LINE = (28, 28, 35)
 WHITE = (245, 245, 250)
-LIGHT_GREY = (130, 130, 140)
+LIGHT_GREY = (160, 160, 170)
 DARK_GREY = (55, 55, 60)
 GREY = (80, 80, 85)
 
@@ -80,12 +90,21 @@ def get_activations(net, x):
     return acts
 
 
+def render_text_with_shadow(win, text, font, color, pos):
+    """Draw text with a clean, sharp drop-shadow to pop on dark grid backgrounds."""
+    x, y = pos
+    # 1. Shadow
+    shadow = font.render(text, True, (2, 2, 4))
+    win.blit(shadow, (x + 1, y + 1))
+    # 2. Foreground
+    fg = font.render(text, True, color)
+    win.blit(fg, (x, y))
+
+
 def draw_glow_circle(win, color, center, radius, glow_radius=18, max_alpha=70):
     """Draw a soft glowing aura around an active node using additive blending."""
-    # Create a temporary surface with alpha channel
     glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
     
-    # Draw nested rings with decaying alpha to create a smooth radial gradient
     for r in range(glow_radius, radius, -2):
         ratio = (r - radius) / (glow_radius - radius)
         alpha = int(max_alpha * (1.0 - ratio * ratio))
@@ -96,7 +115,6 @@ def draw_glow_circle(win, color, center, radius, glow_radius=18, max_alpha=70):
 
 def draw_nn_visualizer(win, start_x, start_y, width, height, acts, net, font, bold_font, chosen_action):
     """Draw a highly styled neural network visualizer with active flow glows."""
-    # Subsample indices for 12 hidden units to represent layers clearly
     h1_indices = [int(i * 256 / 12) for i in range(12)]
     h2_indices = [int(i * 256 / 12) for i in range(12)]
 
@@ -164,7 +182,7 @@ def draw_nn_visualizer(win, start_x, start_y, width, height, acts, net, font, bo
             elif abs_w > 0.15:
                 pygame.draw.line(win, (35, 35, 40), (x_h2, y_coords_h2[k_idx]), (x_out, y_coords_out[o]), 1)
 
-    # Draw Nodes with radial aura glows
+    # Draw Nodes with radial aura glows & dynamic size scaling
     # 1. Input Nodes
     for i in range(20):
         val = acts['input'][i]
@@ -173,16 +191,17 @@ def draw_nn_visualizer(win, start_x, start_y, width, height, acts, net, font, bo
         if is_active:
             glow = max(0, min(155, int(abs(val) * 150)))
             color = (46, 100 + glow, 113)
-            draw_glow_circle(win, color, (x_in, y_coords_in[i]), 6, glow_radius=16, max_alpha=90)
-            pygame.draw.circle(win, color, (x_in, y_coords_in[i]), 6)
+            # Active node is larger (radius 7) and glows
+            draw_glow_circle(win, color, (x_in, y_coords_in[i]), 7, glow_radius=17, max_alpha=110)
+            pygame.draw.circle(win, color, (x_in, y_coords_in[i]), 7)
+            pygame.draw.circle(win, WHITE, (x_in, y_coords_in[i]), 7, 1) # bright ring
             
-            # Glowing text
-            lbl = font.render(INPUT_LABELS[i], True, WHITE)
+            # Glowing text with shadow
+            render_text_with_shadow(win, INPUT_LABELS[i], font, WHITE, (x_in - 170, y_coords_in[i] - 7))
         else:
-            pygame.draw.circle(win, DARK_GREY, (x_in, y_coords_in[i]), 5)
-            lbl = font.render(INPUT_LABELS[i], True, LIGHT_GREY)
-            
-        win.blit(lbl, (x_in - 170, y_coords_in[i] - 7))
+            # Inactive node is smaller (radius 4)
+            pygame.draw.circle(win, DARK_GREY, (x_in, y_coords_in[i]), 4)
+            render_text_with_shadow(win, INPUT_LABELS[i], font, LIGHT_GREY, (x_in - 170, y_coords_in[i] - 7))
 
     # 2. Hidden Layer 1 Nodes
     for j_idx, j in enumerate(h1_indices):
@@ -192,8 +211,9 @@ def draw_nn_visualizer(win, start_x, start_y, width, height, acts, net, font, bo
         if is_active:
             glow = max(0, min(155, int(val * 120)))
             color = (52, 100 + glow, 152)
-            draw_glow_circle(win, color, (x_h1, y_coords_h1[j_idx]), 5, glow_radius=14, max_alpha=80)
-            pygame.draw.circle(win, color, (x_h1, y_coords_h1[j_idx]), 5)
+            draw_glow_circle(win, color, (x_h1, y_coords_h1[j_idx]), 6, glow_radius=15, max_alpha=90)
+            pygame.draw.circle(win, color, (x_h1, y_coords_h1[j_idx]), 6)
+            pygame.draw.circle(win, WHITE, (x_h1, y_coords_h1[j_idx]), 6, 1)
         else:
             pygame.draw.circle(win, DARK_GREY, (x_h1, y_coords_h1[j_idx]), 4)
 
@@ -205,8 +225,9 @@ def draw_nn_visualizer(win, start_x, start_y, width, height, acts, net, font, bo
         if is_active:
             glow = max(0, min(155, int(val * 120)))
             color = (52, 100 + glow, 152)
-            draw_glow_circle(win, color, (x_h2, y_coords_h2[k_idx]), 5, glow_radius=14, max_alpha=80)
-            pygame.draw.circle(win, color, (x_h2, y_coords_h2[k_idx]), 5)
+            draw_glow_circle(win, color, (x_h2, y_coords_h2[k_idx]), 6, glow_radius=15, max_alpha=90)
+            pygame.draw.circle(win, color, (x_h2, y_coords_h2[k_idx]), 6)
+            pygame.draw.circle(win, WHITE, (x_h2, y_coords_h2[k_idx]), 6, 1)
         else:
             pygame.draw.circle(win, DARK_GREY, (x_h2, y_coords_h2[k_idx]), 4)
 
@@ -218,16 +239,14 @@ def draw_nn_visualizer(win, start_x, start_y, width, height, acts, net, font, bo
         if is_chosen:
             glow = max(0, min(150, int(prob * 150)))
             color = (100 + glow, 100 + glow, 20)
-            draw_glow_circle(win, GOLD, (x_out, y_coords_out[o]), 9, glow_radius=20, max_alpha=100)
-            pygame.draw.circle(win, GOLD, (x_out, y_coords_out[o]), 9)
-            pygame.draw.circle(win, WHITE, (x_out, y_coords_out[o]), 10, 2)
+            draw_glow_circle(win, GOLD, (x_out, y_coords_out[o]), 10, glow_radius=22, max_alpha=120)
+            pygame.draw.circle(win, GOLD, (x_out, y_coords_out[o]), 10)
+            pygame.draw.circle(win, WHITE, (x_out, y_coords_out[o]), 11, 2)
             
-            lbl = bold_font.render(f"{OUTPUT_LABELS[o]}: {prob*100:.1f}%", True, GOLD)
+            render_text_with_shadow(win, f"{OUTPUT_LABELS[o]}: {prob*100:.1f}%", bold_font, GOLD, (x_out + 20, y_coords_out[o] - 8))
         else:
             pygame.draw.circle(win, DARK_GREY, (x_out, y_coords_out[o]), 7)
-            lbl = font.render(f"{OUTPUT_LABELS[o]}: {prob*100:.1f}%", True, LIGHT_GREY)
-            
-        win.blit(lbl, (x_out + 18, y_coords_out[o] - 8))
+            render_text_with_shadow(win, f"{OUTPUT_LABELS[o]}: {prob*100:.1f}%", font, LIGHT_GREY, (x_out + 20, y_coords_out[o] - 8))
 
 
 def main():
@@ -265,7 +284,7 @@ def main():
     # NN Visualizer Panel Dimensions
     nn_panel_w = 700
     win_w = game_w + nn_panel_w
-    win_h = game_h + 60  # Extra space for bottom HUD status bar
+    win_h = game_h + 60  # Extra space for HUD status bar
     
     win = pygame.display.set_mode((win_w, win_h))
     pygame.display.set_caption("Maze Snake AI - Neural Network Activation Visualizer")
@@ -325,9 +344,8 @@ def main():
             
         pygame.draw.line(win, GREY, (game_w, 0), (game_w, game_h), 2)
         
-        # Section Title
-        title_lbl = title_font.render("REAL-TIME NEURAL NETWORK ACTIVATIONS (MLP)", True, GOLD)
-        win.blit(title_lbl, (game_w + 20, 15))
+        # Section Title with shadow
+        render_text_with_shadow(win, "REAL-TIME NEURAL NETWORK ACTIVATIONS (MLP)", title_font, GOLD, (game_w + 20, 15))
         
         # Render the NN connections & nodes
         draw_nn_visualizer(win, game_w, 30, nn_panel_w, game_h - 40, acts, net, font, bold_font, action)
@@ -342,13 +360,11 @@ def main():
             best_score = game.score
             
         hud_text = f"Episode: {episode} | Score: {game.score} | Best Score: {best_score} | Steps: {game._steps_since_food}"
-        hud_lbl = title_font.render(hud_text, True, WHITE)
-        win.blit(hud_lbl, (20, game_h + 20))
+        render_text_with_shadow(win, hud_text, title_font, WHITE, (20, game_h + 20))
 
         # Legend explanation
-        legend_txt = "Legend: Green Synapse = Positive | Red Synapse = Negative | Glow Node = Firing | Icon: Apple stem"
-        legend_lbl = font.render(legend_txt, True, LIGHT_GREY)
-        win.blit(legend_lbl, (win_w - 530, game_h + 22))
+        legend_txt = "Legend: Green Synapse = Positive | Red Synapse = Negative | Glowing Node = Firing | Icon: Glossy Apple"
+        render_text_with_shadow(win, legend_txt, font, LIGHT_GREY, (win_w - 550, game_h + 22))
 
         pygame.display.flip()
         

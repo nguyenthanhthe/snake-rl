@@ -304,7 +304,17 @@ class SnakeGame:
         for y in range(h):
             for x in range(w):
                 if self.maze[y, x] == 0 and (x, y) not in self.snake:
-                    candidates.append((x, y))
+                    # Count open neighbors (excluding walls)
+                    open_neighbors = 0
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nx, ny = x + dx, y + dy
+                        if 0 <= nx < w and 0 <= ny < h:
+                            if self.maze[ny, nx] == 0:
+                                open_neighbors += 1
+                    
+                    # Store candidate along with a dead-end flag
+                    is_dead_end = (open_neighbors <= 1)
+                    candidates.append(((x, y), is_dead_end))
                     
         if not candidates:
             self.food = (w // 2, h // 2)
@@ -313,15 +323,24 @@ class SnakeGame:
             
         np.random.shuffle(candidates)
         
-        for cand in candidates:
-            self.food = cand
-            self._compute_geodesic_grid()
-            # If the food is reachable from the head, stop and keep it
-            if self._food_dist_grid[head[1], head[0]] < 9999:
-                return
+        # Phase 1: Try to place food in non-dead-end reachable cells
+        for cand, is_dead in candidates:
+            if not is_dead:
+                self.food = cand
+                self._compute_geodesic_grid()
+                if self._food_dist_grid[head[1], head[0]] < 9999:
+                    return
+                    
+        # Phase 2: Fallback to dead-end reachable cells if non-dead-ends are blocked
+        for cand, is_dead in candidates:
+            if is_dead:
+                self.food = cand
+                self._compute_geodesic_grid()
+                if self._food_dist_grid[head[1], head[0]] < 9999:
+                    return
                 
-        # Fallback to the first candidate if none are reachable
-        self.food = candidates[0]
+        # Phase 3: Ultimate fallback
+        self.food = candidates[0][0]
         self._compute_geodesic_grid()
 
     def _compute_geodesic_grid(self):
@@ -405,41 +424,72 @@ class SnakeGame:
         win = self._screen
         win.fill(BLACK)
         
-        # Draw maze walls
+        # 1. Draw subtle background grid lines for a technical look
+        for x in range(0, self.win_width, self.cell_size):
+            pygame.draw.line(win, (22, 22, 28), (x, 0), (x, self.win_height), 1)
+        for y in range(0, self.win_height, self.cell_size):
+            pygame.draw.line(win, (22, 22, 28), (0, y), (self.win_width, y), 1)
+            
+        # 2. Draw maze walls (grey block with glowing cyan/neon border)
         for y in range(self.grid_height):
             for x in range(self.grid_width):
                 if self.maze[y, x] == 1:
-                    # Grey squares separated by thin black lines
                     rect = (x * self.cell_size + 1, y * self.cell_size + 1,
                             self.cell_size - 2, self.cell_size - 2)
-                    pygame.draw.rect(win, GREY, rect)
+                    # Outer neon border
+                    pygame.draw.rect(win, (0, 120, 150), rect, border_radius=4)
+                    # Inner dark grey block
+                    inner_rect = (x * self.cell_size + 3, y * self.cell_size + 3,
+                                  self.cell_size - 6, self.cell_size - 6)
+                    pygame.draw.rect(win, (45, 45, 50), inner_rect, border_radius=2)
 
-        # Draw food (pure red circle)
+        # 3. Draw food (glossy red apple with stem and leaf)
         fx, fy = self.food
-        pygame.draw.circle(win, RED, 
-                           (fx * self.cell_size + self.cell_size // 2, 
-                            fy * self.cell_size + self.cell_size // 2), 
-                           self.cell_size // 2 - 2)
+        cx = fx * self.cell_size + self.cell_size // 2
+        cy = fy * self.cell_size + self.cell_size // 2
+        r = self.cell_size // 2 - 2
+        
+        # Apple body
+        pygame.draw.circle(win, RED, (cx, cy), r)
+        # Highlight
+        pygame.draw.circle(win, (255, 120, 120), (cx - r//3, cy - r//3), r//4)
+        # Stem
+        pygame.draw.line(win, (120, 75, 30), (cx, cy - r + 1), (cx + 2, cy - r - 2), 2)
+        # Leaf
+        pygame.draw.ellipse(win, GREEN, (cx + 1, cy - r - 4, 5, 3))
 
-        # Draw snake (green tones)
+        # 4. Draw snake (green capsule body with dark accents)
         for i, seg in enumerate(self.snake):
             sx, sy = seg
             rect = (sx * self.cell_size + 1, sy * self.cell_size + 1,
                     self.cell_size - 2, self.cell_size - 2)
             
             if i == len(self.snake) - 1:  # head
-                pygame.draw.rect(win, GREEN, rect, border_radius=4)
+                # Draw head border and body
+                pygame.draw.rect(win, (46, 204, 113), rect, border_radius=5)
+                # Outer border
+                pygame.draw.rect(win, (30, 130, 76), rect, width=2, border_radius=5)
+                
                 # Eyes
                 head_x = sx * self.cell_size + self.cell_size // 2
                 head_y = sy * self.cell_size + self.cell_size // 2
                 dx, dy = _DIRS[self.dir_idx]
-                eye1_x = head_x + dy * 5 + dx * 5
-                eye1_y = head_y - dx * 5 + dy * 5
-                eye2_x = head_x - dy * 5 + dx * 5
-                eye2_y = head_y + dx * 5 + dy * 5
-                pygame.draw.circle(win, BLACK, (int(eye1_x), int(eye1_y)), 2)
-                pygame.draw.circle(win, BLACK, (int(eye2_x), int(eye2_y)), 2)
-            else:  # body (varying green shades)
-                g_val = int(120 + 135 * (i / len(self.snake)))
-                color = (0, g_val, 0)  # Pure green tones
-                pygame.draw.rect(win, color, rect, border_radius=3)
+                
+                # Render eyes shifted towards the moving direction
+                eye1_x = head_x + dy * 4 + dx * 4
+                eye1_y = head_y - dx * 4 + dy * 4
+                eye2_x = head_x - dy * 4 + dx * 4
+                eye2_y = head_y + dx * 4 + dy * 4
+                
+                # Draw white sclera
+                pygame.draw.circle(win, WHITE, (int(eye1_x), int(eye1_y)), 3)
+                pygame.draw.circle(win, WHITE, (int(eye2_x), int(eye2_y)), 3)
+                
+                # Draw black pupil
+                pygame.draw.circle(win, BLACK, (int(eye1_x + dx), int(eye1_y + dy)), 1)
+                pygame.draw.circle(win, BLACK, (int(eye2_x + dx), int(eye2_y + dy)), 1)
+            else:  # body (gradient green segmented capsule look)
+                g_val = int(100 + 155 * (i / len(self.snake)))
+                color = (46, g_val, 113) if g_val > 100 else (39, 174, 96)
+                pygame.draw.rect(win, color, rect, border_radius=4)
+                pygame.draw.rect(win, (20, 90, 50), rect, width=1, border_radius=4)
