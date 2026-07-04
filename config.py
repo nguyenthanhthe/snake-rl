@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass
 class Config:
     # ── observation mode ────────────────────────────────────────────
-    obs_mode: str = "features"   # "features" (14‑dim) or "grid" (5×H×W for CNN)
+    obs_mode: str = "features"   # "features" (20‑dim) or "grid" (5×H×W for CNN)
 
     # ── parallel environments ───────────────────────────────────────
     n_envs: int = 4
@@ -52,7 +52,7 @@ class Config:
     @property
     def obs_shape(self):
         if self.obs_mode == "features":
-            return 14
+            return 20
         return (5, self.grid_height, self.grid_width)
 
     @property

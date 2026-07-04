@@ -23,7 +23,7 @@ class VecEnv:
     @property
     def obs_dim(self):
         if self.obs_mode == "features":
-            return 14
+            return 20
         return (5, self.grid_height, self.grid_width)
 
     @property

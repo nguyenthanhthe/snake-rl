@@ -26,7 +26,7 @@ def test(model_path: str, grid_width: int, grid_height: int, obs_mode: str = "gr
     if obs_mode == "grid":
         net = CNNActorCritic(grid_height, grid_width, 3, 256).to(device)
     else:
-        net = ActorCritic(14, 3, hidden_dim=256).to(device)
+        net = ActorCritic(20, 3, hidden_dim=256).to(device)
 
     # Try loading weights
     try:
