@@ -2,6 +2,15 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+## 📺 Demonstration Video
+<p align="center">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/KlxV_QhXIvg?si=ZompgL8cc3gRiKyM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</p>
+
+*If the video frame doesn't load, you can watch it directly on YouTube here: **[Click to Watch on YouTube](https://www.youtube.com/watch?v=KlxV_QhXIvg)**.*
+
+---
+
 An advanced Reinforcement Learning agent that learns to play **Snake inside a high-density randomized obstacle board** using **Proximal Policy Optimization (PPO)**. 
 
 To overcome the infamous RL loop behavior (where the snake circles endlessly to survive rather than eating food), this project implements a hybrid **MLP + BFS Geodesic Guidance** architecture that achieves rapid convergence, safety overrides, and high-performance pathfinding.
