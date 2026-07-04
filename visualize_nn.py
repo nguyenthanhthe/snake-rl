@@ -123,32 +123,32 @@ def draw_nn(win, start_x, start_y, width, height, acts, net, font, bold_font, ch
     for i in range(20):
         val = acts['input'][i]
         # Nodes with high activation glow green
-        glow = int(val * 180)
-        node_color = (46, 100 + glow, 113) if val > 0 else (60, 60, 65)
+        glow = max(0, min(155, int(abs(val) * 150)))
+        node_color = (46, 100 + glow, 113) if abs(val) > 0.01 else (60, 60, 65)
         pygame.draw.circle(win, node_color, (x_in, y_coords_in[i]), 7)
         # Label text
-        lbl = font.render(INPUT_LABELS[i], True, WHITE if val > 0 else LIGHT_GREY)
+        lbl = font.render(INPUT_LABELS[i], True, WHITE if abs(val) > 0.01 else LIGHT_GREY)
         win.blit(lbl, (x_in - 170, y_coords_in[i] - 7))
 
     # 2. Hidden Layer 1 Nodes
     for j_idx, j in enumerate(h1_indices):
         val = acts['hidden_1'][j]
         # Normalize activation color
-        glow = min(180, int(val * 120))
-        node_color = (52, 152, 100 + glow) if val > 0.05 else (60, 60, 65)
+        glow = max(0, min(155, int(val * 120)))
+        node_color = (52, 100 + glow, 152) if val > 0.05 else (60, 60, 65)
         pygame.draw.circle(win, node_color, (x_h1, y_coords_h1[j_idx]), 6)
 
     # 3. Hidden Layer 2 Nodes
     for k_idx, k in enumerate(h2_indices):
         val = acts['hidden_2'][k]
-        glow = min(180, int(val * 120))
-        node_color = (52, 152, 100 + glow) if val > 0.05 else (60, 60, 65)
+        glow = max(0, min(155, int(val * 120)))
+        node_color = (52, 100 + glow, 152) if val > 0.05 else (60, 60, 65)
         pygame.draw.circle(win, node_color, (x_h2, y_coords_h2[k_idx]), 6)
 
     # 4. Output Nodes
     for o in range(3):
         prob = acts['output'][o]
-        glow = int(prob * 185)
+        glow = max(0, min(150, int(prob * 150)))
         node_color = (100 + glow, 100 + glow, 20) if o == chosen_action else (60, 60, 65)
         pygame.draw.circle(win, node_color, (x_out, y_coords_out[o]), 10)
         
