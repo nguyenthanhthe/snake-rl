@@ -310,7 +310,7 @@ class SnakeGame:
                     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                         nx, ny = x + dx, y + dy
                         if 0 <= nx < w and 0 <= ny < h:
-                            if self.maze[ny, nx] == 0:
+                            if self.maze[ny, nx] == 0 and (nx, ny) not in self.snake:
                                 open_neighbors += 1
                     
                     # Store candidate along with a dead-end flag

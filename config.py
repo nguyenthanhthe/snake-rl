@@ -43,7 +43,7 @@ class Config:
     curriculum: bool = False     # disabled for random maze training
 
     # ── training ────────────────────────────────────────────────────
-    total_episodes: int = 15000  # mazes are harder, train longer
+    total_episodes: int = 20000  # mazes are harder, train longer
     log_interval: int = 1
     render_interval: int = 10
     save_interval: int = 50
