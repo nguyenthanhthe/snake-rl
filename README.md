@@ -3,11 +3,16 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 📺 Demonstration Video
+
 <p align="center">
-  <iframe width="560" height="315" src="https://www.youtube.com/embed/KlxV_QhXIvg?si=ZompgL8cc3gRiKyM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  <a href="https://www.youtube.com/watch?v=KlxV_QhXIvg" target="_blank">
+    <img src="https://img.youtube.com/vi/KlxV_QhXIvg/maxresdefault.jpg" alt="Snake RL Demo Video" width="560" style="border-radius: 8px;">
+  </a>
 </p>
 
-*If the video frame doesn't load, you can watch it directly on YouTube here: **[Click to Watch on YouTube](https://www.youtube.com/watch?v=KlxV_QhXIvg)**.*
+<p align="center">
+  <b>▶️ <a href="https://www.youtube.com/watch?v=KlxV_QhXIvg" target="_blank">Click here to watch the demonstration video on YouTube</a></b>
+</p>
 
 ---
 
